@@ -1,33 +1,28 @@
 """
-Clang Static Analyzer wrapper
+Clang Static Analyzer wrapper with export capabilities
 """
 
 import subprocess
+import plistlib
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from enum import Enum
 
 
-try:
-    from ..models.finding import Finding, Severity  
-except ImportError:
-    from enum import Enum
-
-    class Severity(Enum):
-        CRITICAL = "CRITICAL"
-        HIGH = "HIGH"
-        MEDIUM = "MEDIUM"
-        LOW = "LOW"
-
-    class Finding:
-        #Stub class for standalone usage
-        pass
-
+# Severity enum (ideally import from models, but fallback here)
+class Severity(Enum):
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
 
 
 @dataclass
 class ClangFinding:
-    #Single issue reported by Clang Static Analyzer.
+    """Single issue reported by Clang Static Analyzer."""
     file: str
     line: int
     column: int
@@ -46,7 +41,7 @@ class ClangStaticAnalyzer:
     Supports:
       - Project-level analysis via scan-build
       - Single-file analysis via clang --analyze
-      - Mapping Clang severities to internal Severity enum
+      - Export to JSON and SARIF formats
       - Filtering to high-confidence findings
     """
 
@@ -90,28 +85,28 @@ class ClangStaticAnalyzer:
         'alpha.security.taint.TaintPropagation',
         'alpha.unix.cstring.OutOfBounds',
     ]
+    
     VULN_RESEARCHERS_CHECKERS = [
-    'alpha.core.BoolAssignment',
-    'alpha.core.CastSize',
-    'alpha.core.CastToStruct',
-    'alpha.core.IdenticalExpr',
-    'alpha.core.PointerArithm',
-    'alpha.core.DynamicTypeChecker',
-    'deadcode.DeadStores',
+        'alpha.core.BoolAssignment',
+        'alpha.core.CastSize',
+        'alpha.core.CastToStruct',
+        'alpha.core.IdenticalExpr',
+        'alpha.core.PointerArithm',
+        'alpha.core.DynamicTypeChecker',
+        'deadcode.DeadStores',
     ]
 
     ALL_CHECKERS = SECURITY_CHECKERS + VULN_RESEARCHERS_CHECKERS
             
     HIGH_CONFIDENCE_CHECKERS = {
-    'security.insecureAPI.strcpy',
-    'security.insecureAPI.gets',
-    'core.NullDereference',
-    'core.StackAddressEscape',
-    'unix.Malloc',
-    'alpha.unix.cstring.OutOfBounds',
-    'alpha.security.MallocOverflow',
+        'security.insecureAPI.strcpy',
+        'security.insecureAPI.gets',
+        'core.NullDereference',
+        'core.StackAddressEscape',
+        'unix.Malloc',
+        'alpha.unix.cstring.OutOfBounds',
+        'alpha.security.MallocOverflow',
     }
-
 
     def __init__(
         self,
@@ -132,9 +127,6 @@ class ClangStaticAnalyzer:
         self.default_timeout_project = default_timeout_project
         self.default_timeout_file = default_timeout_file
 
-    
-    # Public API
-    
     def analyze_project(
         self,
         project_path: Path,
@@ -142,8 +134,8 @@ class ClangStaticAnalyzer:
         output_dir: Optional[Path] = None,
         build_cmd: Optional[List[str]] = None,
     ) -> List[ClangFinding]:
-        # Analyze a C/C++ project using scan-build.
-
+        """Analyze a C/C++ project using scan-build."""
+        
         project_path = project_path.resolve()
 
         if output_dir is None:
@@ -155,7 +147,6 @@ class ClangStaticAnalyzer:
         if build_cmd is None:
             build_cmd = ['make', '-C', str(project_path)]
         else:
-           #if provided, make a copy to avoid mutating caller's list
             build_cmd = build_cmd[:]
 
         # Base scan-build command
@@ -163,7 +154,7 @@ class ClangStaticAnalyzer:
             self.scan_build,
             '-o', str(output_dir),
             '--use-analyzer', self.clang,
-            '-plist-html',  # generate both HTML and plist reports
+            '-plist-html',
             '-analyzer-config', 'stable-report-filename=true',
         ]
 
@@ -171,18 +162,20 @@ class ClangStaticAnalyzer:
         for checker in self.ALL_CHECKERS:
             cmd.extend(['-enable-checker', checker])
 
-        # Optional compile_commands.json (depends on scan-build version)
+        # Optional compile_commands.json
         if compile_commands is not None:
-           
             cmd.extend(['-compdb', str(compile_commands.resolve())])
+        else:
+            import os
+            os.environ['CCC_CC'] = self.clang
+            print("  No compile_commands.json provided; using CCC_CC environment variable")
 
-        # Attach build command
         cmd.extend(build_cmd)
 
-        print(f"Running Clang Static Analyzer on project: {project_path}")
-        print(f"Output dir: {output_dir}")
-        print(f"Enabled {len(self.ALL_CHECKERS)} security checkers")
-        print(f"Build command: {' '.join(build_cmd)}")
+        print(f" Running Clang Static Analyzer on project: {project_path}")
+        print(f"  Output dir: {output_dir}")
+        print(f"  Enabled {len(self.ALL_CHECKERS)} checkers")
+        print(f"  Build command: {' '.join(build_cmd)}")
 
         try:
             result = subprocess.run(
@@ -193,30 +186,32 @@ class ClangStaticAnalyzer:
             )
 
             if result.returncode != 0:
-                print("scan-build returned non-zero exit code")
+                print(" scan-build returned non-zero exit code")
                 if result.stderr:
-                    print("---- scan-build stderr ----")
+                    print("---- stderr ----")
                     print(result.stderr.strip())
-                if result.stdout:
-                    print("---- scan-build stdout ----")
-                    print(result.stdout.strip())
 
             findings = self._parse_results(output_dir)
-            print(f"Clang analysis complete: {len(findings)} findings")
+            print(f" Clang analysis complete: {len(findings)} findings")
             return findings
 
         except subprocess.TimeoutExpired:
-            print("Clang analysis timed out for project")
+            print(" Clang analysis timed out")
             return []
         except FileNotFoundError as e:
-            print(f"Failed to run scan-build/clang (file not found): {e}")
+            print(f" scan-build not found: {e}")
             return []
         except Exception as e:
-            print(f"Unexpected error running Clang analysis: {e}")
+            print(f"Unexpected error: {e}")
             return []
 
-    def analyze_file(self, c_file: Path, extra_flags: Optional[List[str]] = None) -> List[ClangFinding]:
-        # Analyze a single C file using clang --analyze.
+    def analyze_file(
+        self, 
+        c_file: Path, 
+        extra_flags: Optional[List[str]] = None
+    ) -> List[ClangFinding]:
+        """Analyze a single C file using clang --analyze."""
+        
         c_file = c_file.resolve()
 
         cmd: List[str] = [
@@ -225,7 +220,6 @@ class ClangStaticAnalyzer:
             '-Xanalyzer', '-analyzer-output=plist',
         ]
 
-        # Enable checkers
         for checker in self.ALL_CHECKERS:
             cmd.extend(['-Xanalyzer', f'-analyzer-checker={checker}'])
 
@@ -234,7 +228,7 @@ class ClangStaticAnalyzer:
 
         cmd.append(str(c_file))
 
-        print(f"Running Clang Static Analyzer on file: {c_file}")
+        print(f"Analyzing file: {c_file}")
 
         try:
             result = subprocess.run(
@@ -246,64 +240,145 @@ class ClangStaticAnalyzer:
             )
 
             if result.returncode != 0:
-                print(f"clang --analyze returned non-zero exit code for {c_file}")
+                print(f" clang returned non-zero exit code")
                 if result.stderr:
-                    print("---- clang stderr ----")
                     print(result.stderr.strip())
 
-            # By default, clang writes a plist next to the analyzed file
             plist_file = c_file.with_suffix('.plist')
 
             if plist_file.exists():
                 findings = self._parse_plist(plist_file)
-        
                 try:
                     plist_file.unlink()
                 except OSError:
-                    
                     pass
-                print(f"File analysis complete: {len(findings)} findings")
+                
+                print(f" Found {len(findings)} issues")
                 return findings
 
-            print("No plist report produced by clang (no findings or error).")
+            print(" No issues found")
             return []
 
         except subprocess.TimeoutExpired:
-            print(f"Clang analysis timed out for file: {c_file}")
+            print(f"Analysis timed out")
             return []
         except FileNotFoundError as e:
-            print(f"Failed to run clang (file not found): {e}")
+            print(f"clang not found: {e}")
             return []
         except Exception as e:
-            print(f"Unexpected error analyzing {c_file}: {e}")
+            print(f"Error: {e}")
             return []
 
-    def get_high_confidence_findings(self, findings: List[ClangFinding]) -> List[ClangFinding]:
-        # Filter findings to only high-confidence checkers.
+    def get_high_confidence_findings(
+        self, 
+        findings: List[ClangFinding]
+    ) -> List[ClangFinding]:
+        """Filter to only high-confidence checkers."""
         return [
             f for f in findings
             if f.checker in self.HIGH_CONFIDENCE_CHECKERS
         ]
 
-    
-    # Internal helpers
-   
-    def _parse_results(self, output_dir: Path) -> List[ClangFinding]:
-        #Parse all plist files under output_dir produced by scan-build.
-        findings: List[ClangFinding] = []
+    def export_to_json(
+        self, 
+        findings: List[ClangFinding], 
+        output_file: Path
+    ) -> None:
+        """Export findings to JSON format."""
+        
+        data = {
+            'findings': [asdict(f) for f in findings],
+            'metadata': {
+                'analyzer': 'Clang Static Analyzer',
+                'timestamp': datetime.now().isoformat(),
+                'total': len(findings),
+                'by_severity': {
+                    'critical': sum(1 for f in findings if f.severity == Severity.CRITICAL),
+                    'high': sum(1 for f in findings if f.severity == Severity.HIGH),
+                    'medium': sum(1 for f in findings if f.severity == Severity.MEDIUM),
+                    'low': sum(1 for f in findings if f.severity == Severity.LOW),
+                }
+            }
+        }
+        
+        with open(output_file, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+        
+        print(f"Results exported to {output_file}")
 
+    def export_to_sarif(
+        self, 
+        findings: List[ClangFinding], 
+        output_file: Path
+    ) -> None:
+        """Export to SARIF format (GitHub code scanning compatible)."""
+        
+        sarif = {
+            "version": "2.1.0",
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "runs": [{
+                "tool": {
+                    "driver": {
+                        "name": "Clang Static Analyzer",
+                        "version": "1.0",
+                        "informationUri": "https://clang.llvm.org/docs/ClangStaticAnalyzer.html"
+                    }
+                },
+                "results": []
+            }]
+        }
+        
+        for f in findings:
+            sarif["runs"][0]["results"].append({
+                "ruleId": f.checker,
+                "level": "error" if f.severity in [Severity.CRITICAL, Severity.HIGH] else "warning",
+                "message": {"text": f.message},
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": f.file},
+                        "region": {
+                            "startLine": f.line,
+                            "startColumn": f.column
+                        }
+                    }
+                }]
+            })
+        
+        with open(output_file, 'w') as f:
+            json.dump(sarif, f, indent=2)
+        
+        print(f"SARIF results exported to {output_file}")
+
+    # Internal helpers
+    
+    def _parse_results(self, output_dir: Path) -> List[ClangFinding]:
+        """Parse all plist files in output directory."""
+        findings: List[ClangFinding] = []
+        
         for plist_file in output_dir.rglob('*.plist'):
             findings.extend(self._parse_plist(plist_file))
-
-        return findings
+        
+        # Deduplicate
+        seen = set()
+        unique = []
+        
+        for f in findings:
+            key = (f.file, f.line, f.checker)
+            if key not in seen:
+                seen.add(key)
+                unique.append(f)
+        
+        return unique
 
     def _parse_plist(self, plist_file: Path) -> List[ClangFinding]:
-        #Parse a single plist file and extract ClangFinding objects.
-        import plistlib
-
+        """Parse a single plist file."""
+        
         try:
             with open(plist_file, 'rb') as f:
                 plist_data = plistlib.load(f)
+
+            if not isinstance(plist_data, dict):
+                return []
 
             files = plist_data.get('files', [])
             diagnostics = plist_data.get('diagnostics', [])
@@ -317,23 +392,19 @@ class ClangStaticAnalyzer:
                 if isinstance(file_idx, int) and 0 <= file_idx < len(files):
                     file_path = str(Path(files[file_idx]).resolve())
                 else:
-                    
-                    file_path = str(plist_file)
+                    # Skip invalid entries
+                    continue
 
                 line = int(loc.get('line', 0) or 0)
                 col = int(loc.get('col', 0) or 0)
-
-                checker = diag.get('check_name', 'unknown')
-                message = diag.get('description', '')
-                clang_type = diag.get('type', 'warning')
 
                 finding = ClangFinding(
                     file=file_path,
                     line=line,
                     column=col,
-                    checker=checker,
-                    message=message,
-                    severity=self._map_severity(clang_type),
+                    checker=diag.get('check_name', 'unknown'),
+                    message=diag.get('description', ''),
+                    severity=self._map_severity(diag.get('type', 'warning')),
                     category=diag.get('category', ''),
                     issue_context=diag.get('issue_context', ''),
                     issue_context_kind=diag.get('issue_context_kind', ''),
@@ -344,11 +415,11 @@ class ClangStaticAnalyzer:
             return results
 
         except Exception as e:
-            print(f"Error parsing plist {plist_file}: {e}")
+            print(f"Error parsing {plist_file}: {e}")
             return []
 
     def _map_severity(self, clang_severity: str) -> Severity:
-        # Map Clang severity strings to internal Severity enum.
+        """Map Clang severity to internal Severity enum."""
         s = clang_severity.lower().strip()
 
         mapping = {
@@ -360,12 +431,15 @@ class ClangStaticAnalyzer:
         return mapping.get(s, Severity.MEDIUM)
 
 
-# Simple CLI test for single-file usage
+# CLI test
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python clang_analyzer.py <c_file> [extra flags ...]")
+        print("Usage: python clang_analyzer.py <c_file> [extra_flags...]")
+        print("\nExample:")
+        print("  python clang_analyzer.py vuln.c")
+        print("  python clang_analyzer.py vuln.c -I/usr/include")
         sys.exit(1)
 
     c_path = Path(sys.argv[1])
@@ -374,14 +448,25 @@ if __name__ == "__main__":
     analyzer = ClangStaticAnalyzer()
     findings = analyzer.analyze_file(c_path, extra_flags=extra)
 
-    print(f"\n{'=' * 60}")
-    print("Clang Static Analyzer Results")
-    print(f"{'=' * 60}\n")
+    print(f"\n{'=' * 70}")
+    print(" CLANG STATIC ANALYZER RESULTS")
+    print(f"{'=' * 70}\n")
 
-    for f in findings:
-        print(f"{f.file}:{f.line}:{f.column}")
-        print(f"   Checker:  {f.checker}")
-        print(f"   Severity: {f.severity.name}")
-        print(f"   Message:  {f.message}")
-        print()
-
+    if not findings:
+        print(" No issues found!")
+    else:
+        for i, f in enumerate(findings, 1):
+            print(f"Finding #{i}")
+            print(f" Location: {f.file}:{f.line}:{f.column}")
+            print(f" Checker:  {f.checker}")
+            print(f" Severity: {f.severity.name}")
+            print(f"  Message:  {f.message}")
+            print()
+        
+        # Export to JSON
+        json_path = c_path.with_suffix('.results.json')
+        analyzer.export_to_json(findings, json_path)
+        
+        # Export to SARIF
+        sarif_path = c_path.with_suffix('.sarif.json')
+        analyzer.export_to_sarif(findings, sarif_path)

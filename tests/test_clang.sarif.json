@@ -1,0 +1,237 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Clang Static Analyzer",
+          "version": "1.0",
+          "informationUri": "https://clang.llvm.org/docs/ClangStaticAnalyzer.html"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "core.StackAddrEscapeBase",
+          "level": "warning",
+          "message": {
+            "text": "Address of stack memory associated with local variable 'msg' returned to caller"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 10,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "core.NonNullParamChecker",
+          "level": "warning",
+          "message": {
+            "text": "Null pointer passed to 1st parameter expecting 'nonnull'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 14,
+                  "startColumn": 15
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "security.insecureAPI.strcpy",
+          "level": "warning",
+          "message": {
+            "text": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 20,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "unix.Malloc",
+          "level": "warning",
+          "message": {
+            "text": "Attempt to free released memory"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 39,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "core.NullDereference",
+          "level": "warning",
+          "message": {
+            "text": "Dereference of undefined pointer value"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 44,
+                  "startColumn": 32
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "security.insecureAPI.strcpy",
+          "level": "warning",
+          "message": {
+            "text": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 58,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "security.insecureAPI.strcpy",
+          "level": "warning",
+          "message": {
+            "text": "Call to function 'strcat' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcat'. CWE-119"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 61,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "security.insecureAPI.strcpy",
+          "level": "warning",
+          "message": {
+            "text": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 69,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "unix.Malloc",
+          "level": "warning",
+          "message": {
+            "text": "Use of memory after it is freed"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 72,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "alpha.unix.cstring.OutOfBounds",
+          "level": "warning",
+          "message": {
+            "text": "String copy function overflows destination buffer"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "security.insecureAPI.strcpy",
+          "level": "warning",
+          "message": {
+            "text": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

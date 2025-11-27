@@ -1,0 +1,136 @@
+{
+  "findings": [
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 10,
+      "column": 5,
+      "checker": "core.StackAddrEscapeBase",
+      "message": "Address of stack memory associated with local variable 'msg' returned to caller",
+      "severity": "Severity.MEDIUM",
+      "category": "Logic error",
+      "issue_context": "get_message",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 14,
+      "column": 15,
+      "checker": "core.NonNullParamChecker",
+      "message": "Null pointer passed to 1st parameter expecting 'nonnull'",
+      "severity": "Severity.MEDIUM",
+      "category": "API",
+      "issue_context": "print_len",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 20,
+      "column": 5,
+      "checker": "security.insecureAPI.strcpy",
+      "message": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119",
+      "severity": "Severity.MEDIUM",
+      "category": "Security",
+      "issue_context": "copy_user",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 39,
+      "column": 5,
+      "checker": "unix.Malloc",
+      "message": "Attempt to free released memory",
+      "severity": "Severity.MEDIUM",
+      "category": "Memory error",
+      "issue_context": "test_double_free",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 44,
+      "column": 32,
+      "checker": "core.NullDereference",
+      "message": "Dereference of undefined pointer value",
+      "severity": "Severity.MEDIUM",
+      "category": "Logic error",
+      "issue_context": "uninitialized_usage",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 58,
+      "column": 5,
+      "checker": "security.insecureAPI.strcpy",
+      "message": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119",
+      "severity": "Severity.MEDIUM",
+      "category": "Security",
+      "issue_context": "realloc_bug",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 61,
+      "column": 5,
+      "checker": "security.insecureAPI.strcpy",
+      "message": "Call to function 'strcat' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcat'. CWE-119",
+      "severity": "Severity.MEDIUM",
+      "category": "Security",
+      "issue_context": "realloc_bug",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 69,
+      "column": 5,
+      "checker": "security.insecureAPI.strcpy",
+      "message": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119",
+      "severity": "Severity.MEDIUM",
+      "category": "Security",
+      "issue_context": "use_after_free_simple",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 72,
+      "column": 5,
+      "checker": "unix.Malloc",
+      "message": "Use of memory after it is freed",
+      "severity": "Severity.MEDIUM",
+      "category": "Memory error",
+      "issue_context": "use_after_free_simple",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 77,
+      "column": 5,
+      "checker": "alpha.unix.cstring.OutOfBounds",
+      "message": "String copy function overflows destination buffer",
+      "severity": "Severity.MEDIUM",
+      "category": "Logic error",
+      "issue_context": "deep_copy",
+      "issue_context_kind": "function"
+    },
+    {
+      "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test_clang.c",
+      "line": 77,
+      "column": 5,
+      "checker": "security.insecureAPI.strcpy",
+      "message": "Call to function 'strcpy' is insecure as it does not provide bounding of the memory buffer. Replace unbounded copy functions with analogous functions that support length arguments such as 'strlcpy'. CWE-119",
+      "severity": "Severity.MEDIUM",
+      "category": "Security",
+      "issue_context": "deep_copy",
+      "issue_context_kind": "function"
+    }
+  ],
+  "metadata": {
+    "analyzer": "Clang Static Analyzer",
+    "timestamp": "2025-11-27T14:52:00.617699",
+    "total": 11,
+    "by_severity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 11,
+      "low": 0
+    }
+  }
+}
