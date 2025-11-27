@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests",
+    "command": "clang -c test2.c -o test2.o",
+    "file": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test2.c"
+  }
+]

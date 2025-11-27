@@ -1,0 +1,54 @@
+{
+  "metadata": {
+    "analyzer": "LLVM Taint Analyzer (Fixed)",
+    "timestamp": "2025-11-27T22:34:28.236510"
+  },
+  "flows": [
+    {
+      "source": {
+        "type": "NETWORK",
+        "location": "main:11"
+      },
+      "sink": {
+        "function": "strcpy",
+        "type": "BUFFER_COPY",
+        "location": "process_network_data:8"
+      },
+      "exploitability": 0.855,
+      "validation": false,
+      "cwe": "CWE-120",
+      "path": [
+        "main",
+        "main",
+        "main",
+        "process_network_data",
+        "process_network_data",
+        "process_network_data"
+      ]
+    }
+  ],
+  "high_confidence": [
+    {
+      "source": {
+        "type": "NETWORK",
+        "location": "main:11"
+      },
+      "sink": {
+        "function": "strcpy",
+        "type": "BUFFER_COPY",
+        "location": "process_network_data:8"
+      },
+      "exploitability": 0.855,
+      "validation": false,
+      "cwe": "CWE-120",
+      "path": [
+        "main",
+        "main",
+        "main",
+        "process_network_data",
+        "process_network_data",
+        "process_network_data"
+      ]
+    }
+  ]
+}

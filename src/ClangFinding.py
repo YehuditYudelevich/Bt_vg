@@ -434,6 +434,7 @@ class ClangStaticAnalyzer:
 # CLI test
 if __name__ == "__main__":
     import sys
+    import_to_json=True
 
     if len(sys.argv) < 2:
         print("Usage: python clang_analyzer.py <c_file> [extra_flags...]")
@@ -464,9 +465,15 @@ if __name__ == "__main__":
             print()
         
         # Export to JSON
-        json_path = c_path.with_suffix('.results.json')
-        analyzer.export_to_json(findings, json_path)
-        
-        # Export to SARIF
-        sarif_path = c_path.with_suffix('.sarif.json')
-        analyzer.export_to_sarif(findings, sarif_path)
+        if import_to_json:
+            try:
+                json_path = c_path.with_suffix('.results.json')
+                analyzer.export_to_json(findings, json_path)
+                
+                # Export to SARIF
+                sarif_path = c_path.with_suffix('.sarif.json')
+                analyzer.export_to_sarif(findings, sarif_path)
+            except Exception as e:
+                print(f"Error exporting results: {e}")
+        else:
+            print("Skipping export to JSON and SARIF as per configuration.")

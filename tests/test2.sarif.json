@@ -1,0 +1,57 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Clang Static Analyzer",
+          "version": "1.0",
+          "informationUri": "https://clang.llvm.org/docs/ClangStaticAnalyzer.html"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "security.insecureAPI.DeprecatedOrUnsafeBufferHandling",
+          "level": "warning",
+          "message": {
+            "text": "Call to function 'scanf' is insecure as it does not provide security checks introduced in the C11 standard. Replace with analogous functions that support length arguments or provides boundary checks such as 'scanf_s' in case of C11"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test2.c"
+                },
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "alpha.security.taint.TaintPropagation",
+          "level": "warning",
+          "message": {
+            "text": "Untrusted data is used to specify the buffer size (CERT/STR31-C. Guarantee that storage for strings has sufficient space for character data and the null terminator)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/mnt/c/Users/Yehudit/Desktop/groq_test/vuln_dinder/tests/test2.c"
+                },
+                "region": {
+                  "startLine": 8,
+                  "startColumn": 15
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

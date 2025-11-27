@@ -124,7 +124,7 @@
   ],
   "metadata": {
     "analyzer": "Clang Static Analyzer",
-    "timestamp": "2025-11-27T14:52:00.617699",
+    "timestamp": "2025-11-27T18:49:17.184394",
     "total": 11,
     "by_severity": {
       "critical": 0,
