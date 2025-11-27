@@ -90,15 +90,28 @@ class ClangStaticAnalyzer:
         'alpha.security.taint.TaintPropagation',
         'alpha.unix.cstring.OutOfBounds',
     ]
+    VULN_RESEARCHERS_CHECKERS = [
+    'alpha.core.BoolAssignment',
+    'alpha.core.CastSize',
+    'alpha.core.CastToStruct',
+    'alpha.core.IdenticalExpr',
+    'alpha.core.PointerArithm',
+    'alpha.core.DynamicTypeChecker',
+    'deadcode.DeadStores',
+    ]
 
-    
+    ALL_CHECKERS = SECURITY_CHECKERS + VULN_RESEARCHERS_CHECKERS
+            
     HIGH_CONFIDENCE_CHECKERS = {
-        'security.insecureAPI.strcpy',
-        'security.insecureAPI.gets',
-        'core.NullDereference',
-        'core.StackAddressEscape',
-        'unix.Malloc',
+    'security.insecureAPI.strcpy',
+    'security.insecureAPI.gets',
+    'core.NullDereference',
+    'core.StackAddressEscape',
+    'unix.Malloc',
+    'alpha.unix.cstring.OutOfBounds',
+    'alpha.security.MallocOverflow',
     }
+
 
     def __init__(
         self,
@@ -155,7 +168,7 @@ class ClangStaticAnalyzer:
         ]
 
         # Enable all security checkers
-        for checker in self.SECURITY_CHECKERS:
+        for checker in self.ALL_CHECKERS:
             cmd.extend(['-enable-checker', checker])
 
         # Optional compile_commands.json (depends on scan-build version)
@@ -168,7 +181,7 @@ class ClangStaticAnalyzer:
 
         print(f"Running Clang Static Analyzer on project: {project_path}")
         print(f"Output dir: {output_dir}")
-        print(f"Enabled {len(self.SECURITY_CHECKERS)} security checkers")
+        print(f"Enabled {len(self.ALL_CHECKERS)} security checkers")
         print(f"Build command: {' '.join(build_cmd)}")
 
         try:
@@ -213,7 +226,7 @@ class ClangStaticAnalyzer:
         ]
 
         # Enable checkers
-        for checker in self.SECURITY_CHECKERS:
+        for checker in self.ALL_CHECKERS:
             cmd.extend(['-Xanalyzer', f'-analyzer-checker={checker}'])
 
         if extra_flags:
