@@ -261,7 +261,9 @@ class LLVMTaintAnalyzer:
             
             compile_entries.append((file_path, directory, flags))
         
-        print(f"Found {len(compile_entries)} C/C++ files")
+        total_files = len(compile_entries)
+        total_files = len(compile_entries)
+        print(f"Found {total_files} C/C++ files")
         
         # Compile in parallel
         ir_files = []
@@ -282,7 +284,15 @@ class LLVMTaintAnalyzer:
                     if ir_file:
                         ir_files.append(ir_file)
                 except Exception as e:
-                    print(f"Error compiling {c_file.name}: {e}")  
+                    print(f"Error compiling {c_file.name}: {e}")
+        
+        # Check compilation success rate
+        if total_files > 0:
+            success_rate = len(ir_files) / total_files
+            if success_rate < 0.5:  # Less than 50% success
+                print(f"\nWarning: Only {len(ir_files)}/{total_files} files compiled successfully ({success_rate:.0%}).")
+                print("Skipping taint analysis (project environment incomplete - missing dependencies?).")
+                return []
         
         return ir_files
     
