@@ -149,6 +149,7 @@ class ASANStats:
     total_executables: int
     successful_compilations: int
     failed_compilations: int
+    skipped_files: int  # Server/test framework files
     total_tests_run: int
     total_findings: int
     findings_by_type: Dict[str, int]
@@ -295,14 +296,24 @@ class ASANAnalyzer:
         )
 
         if not executables:
-            self._log("   No executables compiled successfully")
-            self._log("   Reason: No main() functions found or compilation errors\n")
+            # Check if files were skipped
+            if compile_stats.get('skipped_server', 0) > 0 or compile_stats.get('skipped_framework', 0) > 0:
+                self._log("\n    Note: Files were found but skipped:")
+                if compile_stats.get('skipped_server', 0) > 0:
+                    self._log(f"      • {compile_stats['skipped_server']} server/daemon program(s) (require network testing)")
+                if compile_stats.get('skipped_framework', 0) > 0:
+                    self._log(f"      • {compile_stats['skipped_framework']} test framework file(s) (require framework build)")
+                self._log("     Static analysis stages will still analyze these files\n")
+            else:
+                self._log("   No executables compiled successfully")
+                self._log("   Reason: No main() functions found or compilation errors\n")
 
             end_time = datetime.now()
             stats = ASANStats(
                 total_executables=0,
                 successful_compilations=0,
                 failed_compilations=compile_stats['failed'],
+                skipped_files=compile_stats.get('skipped_server', 0) + compile_stats.get('skipped_framework', 0),
                 total_tests_run=0,
                 total_findings=0,
                 findings_by_type={},
@@ -362,18 +373,18 @@ class ASANAnalyzer:
         """
 
         executables = []
-        stats = {'success': 0, 'failed': 0, 'skipped': 0}
+        stats = {'success': 0, 'failed': 0, 'skipped': 0, 'skipped_server': 0, 'skipped_framework': 0}
 
         # Find source files with main()
         if single_file_target:
             # Only analyze the specific file if provided
-            if self._has_main_function(single_file_target):
+            if self._has_main_function(single_file_target, stats):
                 source_files = [single_file_target]
             else:
                 self._log(f"   File {single_file_target.name} does not contain main() function")
                 return [], stats
         else:
-            source_files = self._find_source_files_with_main(project_path)
+            source_files = self._find_source_files_with_main(project_path, stats)
 
         if not source_files:
             self._log("   No source files with main() function found")
@@ -407,11 +418,25 @@ class ASANAnalyzer:
             # Output executable name
             output_name = source_file.stem + '_asan'
             output_path = asan_dir / output_name
+            
+            # Find library sources to link (for test files)
+            library_sources = []
+            if 'test' in source_file.name.lower():
+                library_sources = self._find_library_sources(project_path, source_file)
+                if library_sources:
+                    self._log(f"      Found {len(library_sources)} library file(s) to link")
 
             # Build command
             cmd = [
                 compiler,
                 str(source_file),
+            ]
+            
+            # Add library sources
+            for lib_src in library_sources:
+                cmd.append(str(lib_src))
+            
+            cmd.extend([
                 '-o', str(output_path),
 
                 # ASAN flags
@@ -423,12 +448,31 @@ class ASANAnalyzer:
                 # Additional useful sanitizers
                 '-fsanitize=undefined',  # Catch undefined behavior
                 '-fno-sanitize-recover=all',  # Abort on first error
-            ]
+            ])
+            
+            # Add include directories for headers
+            # Add project root and common include directories
+            include_dirs = set()
+            if project_path.is_file():
+                include_dirs.add(str(project_path.parent))
+            else:
+                include_dirs.add(str(project_path))
+                # Add common include directories
+                for inc_dir in ['include', 'inc', 'src']:
+                    potential_inc = project_path / inc_dir
+                    if potential_inc.exists():
+                        include_dirs.add(str(potential_inc))
+            
+            for inc_dir in include_dirs:
+                cmd.extend(['-I', inc_dir])
 
             # Add existing flags (exclude output-related flags)
             for flag in existing_flags:
                 if flag not in ['-c', '-o'] and not flag.endswith('.o'):
                     cmd.append(flag)
+            
+            # Add math library (needed by many C projects)
+            cmd.append('-lm')
 
             # Add C++ standard if needed
             if is_cpp:
@@ -522,7 +566,16 @@ class ASANAnalyzer:
                     if finding:
                         findings.append(finding)
                         self._log(f"      🔴 Test {i}/{len(test_inputs)}: {finding.error_type.value}")
+                elif result.returncode != 0:
+                    # Program exited with error - check if it's network-related
+                    if 'connect' in output.lower() or 'connection' in output.lower() or 'socket' in output.lower():
+                        if i % 5 == 0 or i == len(test_inputs):
+                            self._log(f"        Tests {i-4 if i >= 5 else 1}-{i}: Network error (requires server/network setup)")
+                    else:
+                        if i % 5 == 0 or i == len(test_inputs):
+                            self._log(f"        Tests {i-4 if i >= 5 else 1}-{i}: Program exited with error (no memory issues)")
                 else:
+                    # Program ran successfully
                     if i % 5 == 0 or i == len(test_inputs):
                         self._log(f"      ✓ Tests {i-4 if i >= 5 else 1}-{i}: Clean")
 
@@ -756,7 +809,7 @@ class ASANAnalyzer:
 
         return inputs
 
-    def _find_source_files_with_main(self, project_path: Path) -> List[Path]:
+    def _find_source_files_with_main(self, project_path: Path, stats: Optional[Dict] = None) -> List[Path]:
         """
         Find all C/C++ source files containing main() function
 
@@ -764,7 +817,7 @@ class ASANAnalyzer:
         """
         source_files = []
         if project_path.is_file():
-            if self._has_main_function(project_path):
+            if self._has_main_function(project_path, stats):
                 return [project_path]
             else:
                 self._log(f"   File {project_path.name} does not contain main()")
@@ -774,26 +827,27 @@ class ASANAnalyzer:
         # Find all C/C++ files
         for pattern in ['**/*.c', '**/*.cpp', '**/*.cc', '**/*.cxx', '**/*.C']:
             for file in project_path.glob(pattern):
-                # Skip test directories, fuzzing, and build artifacts
+                # Skip build artifacts and special directories
                 relative = file.relative_to(project_path)
                 if len(relative.parts) > 1:  # Has subdirectories
                     exclude_dirs = {
-                        '.git', 'build', '.asan_builds', 
-                        'test', 'tests', 'testing',  # Test directories
+                        '.git', 'build', '.asan_builds',
                         'fuzzing', 'fuzz', 'fuzzer',  # Fuzzing directories
-                        'unity', 'cmock',  # Test frameworks
-                        'examples'  # Usually incomplete
+                        'unity', 'cmock',  # Test frameworks (not test files themselves)
                     }
-                    if any(excluded in relative.parts for excluded in exclude_dirs):
+                    # Only exclude if subdirectory (not if tests/ is the direct parent)
+                    # This allows analyzing test files while skipping framework code
+                    exclude_parts = [part for part in relative.parts[:-1] if part in exclude_dirs]
+                    if exclude_parts:
                         continue
 
                 # Check for main function
-                if self._has_main_function(file):
+                if self._has_main_function(file, stats):
                     source_files.append(file)
 
         return source_files
 
-    def _has_main_function(self, file_path: Path) -> bool:
+    def _has_main_function(self, file_path: Path, stats: Optional[Dict] = None) -> bool:
         """Check if file contains main() function"""
 
         try:
@@ -805,11 +859,110 @@ class ASANAnalyzer:
                 r'\bvoid\s+main\s*\(',
                 r'\bauto\s+main\s*\(',
             ]
+            
+            has_main = any(re.search(pattern, content) for pattern in patterns)
+            
+            if not has_main:
+                return False
+            
+            # Exclude files that use test frameworks (can't compile standalone)
+            test_framework_markers = [
+                '#include "unity',        # Unity test framework
+                '#include <unity',
+                '#include "gtest',        # Google Test
+                '#include <gtest',
+                '#include "catch',        # Catch2
+                '#include <catch',
+                '#include "doctest',      # doctest
+                '#include <CUnit',        # CUnit
+                'TEST_ASSERT',            # Unity macros
+                'ASSERT_EQ',              # GTest macros
+                'REQUIRE(',               # Catch2 macros
+            ]
+            
+            # Skip if uses test framework
+            if any(marker in content for marker in test_framework_markers):
+                self._log(f"    Skipping {file_path.name}: Uses test framework (requires framework build system)")
+                if stats:
+                    stats['skipped_framework'] += 1
+                return False
+            
+            # Exclude server/daemon programs (run forever, can't test with stdin)
+            server_markers = [
+                'listen(',               # Network server
+                'bind(',                 # Socket binding
+                'accept(',               # Accepting connections
+                'daemon(',               # Daemonize
+                'fork(',                 # Forking (often servers)
+                'while(1)',              # Infinite loop
+                'while (1)',
+                'for(;;)',               # Infinite loop
+                'for (;;)',
+                'event_base_dispatch',   # libevent
+                'uv_run',                # libuv event loop
+            ]
+            
+            # Skip if it's a server program (too many markers = likely a server)
+            server_count = sum(1 for marker in server_markers if marker in content)
+            if server_count >= 3:  # If 3+ server indicators, skip it
+                self._log(f"    Skipping {file_path.name}: Detected as server/daemon (requires network testing)")
+                if stats:
+                    stats['skipped_server'] += 1
+                return False
 
-            return any(re.search(pattern, content) for pattern in patterns)
+            return True
 
         except Exception:
             return False
+    
+    def _find_library_sources(self, project_path: Path, test_file: Path) -> List[Path]:
+        """
+        Find library source files that a test file depends on
+        
+        Strategy:
+        1. Look for .c/.cpp files in project root or src/ directory
+        2. Exclude other test files
+        3. Match by name patterns (e.g., for json_patch_tests.c, find cJSON*.c)
+        """
+        
+        library_sources = []
+        
+        if project_path.is_file():
+            project_root = project_path.parent
+        else:
+            project_root = project_path
+        
+        # Common library directories
+        search_dirs = [
+            project_root,
+            project_root / 'src',
+            project_root / 'lib',
+            project_root / 'source',
+        ]
+        
+        # Find all .c/.cpp files (excluding test files)
+        for search_dir in search_dirs:
+            if not search_dir.exists():
+                continue
+                
+            for pattern in ['*.c', '*.cpp', '*.cc', '*.cxx']:
+                for lib_file in search_dir.glob(pattern):
+                    # Skip if it's the test file itself
+                    if lib_file == test_file:
+                        continue
+                    
+                    # Skip if it has main() (likely another executable)
+                    if self._has_main_function(lib_file):
+                        continue
+                    
+                    # Skip test files in library directories
+                    if any(test_marker in lib_file.name.lower() 
+                           for test_marker in ['test', 'example', 'sample', 'demo']):
+                        continue
+                    
+                    library_sources.append(lib_file)
+        
+        return library_sources
 
     def _parse_compile_commands(self, compile_commands: Path) -> Dict[Path, List[str]]:
         """Parse compile_commands.json to extract flags for each file"""
@@ -945,6 +1098,7 @@ class ASANAnalyzer:
             total_executables=num_executables + compile_stats['failed'],
             successful_compilations=compile_stats['success'],
             failed_compilations=compile_stats['failed'],
+            skipped_files=compile_stats.get('skipped_server', 0) + compile_stats.get('skipped_framework', 0),
             total_tests_run=total_tests,
             total_findings=len(findings),
             findings_by_type=by_type,
